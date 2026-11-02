@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "1/3 · BKK FUTÁR API kulcs",
+        "title": "1/2 · BKK FUTÁR API kulcs",
         "description": "Az indulásokat a BKK hivatalos nyílt API-ja adja, ehhez **saját, ingyenes API kulcs** kell.\n\n**Így kérhetsz kulcsot (2 perc):**\n1. Nyisd meg: {url}\n2. Jobb felül **Log in** → regisztrálj (e-mail + jelszó), majd lépj be\n3. Bal oldalt **Key management** → hozz létre egy új kulcsot\n4. Másold ki a kulcsot, és illeszd be ide.\n\nA kulcs csak a Home Assistantodban tárolódik.",
         "data": {
           "api_key": "API kulcs"
@@ -12,15 +12,15 @@
         }
       },
       "search": {
-        "title": "2/3 · Megálló keresése",
-        "description": "Írd be a megálló nevét (legalább 3 betű), pl. **Deák Ferenc tér** vagy **Templom tér**.\n\nMár kiválasztva:\n{selected}",
+        "title": "Megálló keresése",
+        "description": "Írd be a megálló nevét (legalább 3 betű), pl. **Deák Ferenc tér** vagy **Templom tér**. A találatok a következő lépésben jelennek meg.\n\nMár kiválasztva:\n{selected}",
         "data": {
           "query": "Megálló neve"
         }
       },
       "stops": {
-        "title": "3/3 · Jelöld be a megállókat",
-        "description": "Egy megállónak irányonként külön oszlopa van. A **nyíl** a haladási irány (É, K, D, Ny…), utána a megállóban közlekedő **járatok**, zárójelben az irányítószám.\n\nTöbbet is bejelölhetsz.",
+        "title": "Jelöld be a megállókat",
+        "description": "Elöl a **település / kerület**, utána a megálló neve, a nyíl a **haladási irány** (É, K, D, Ny…), a végén a megállóban közlekedő **járatok** színük szerint: 🟦 busz, 🟥 troli / M2, 🟨 villamos / M1, 🟩 HÉV, ⬛ éjszakai.\n\nTöbbet is bejelölhetsz.",
         "data": {
           "stops": "Megállók"
         }
@@ -45,6 +45,14 @@
         "description": "Add meg az új kulcsot. Kulcsot itt kérhetsz: {url}",
         "data": {
           "api_key": "API kulcs"
+        }
+      },
+      "start": {
+        "title": "2/2 · Megállók",
+        "description": "Hogyan adod hozzá a megállókat?\n\n**Tipp:** a legkényelmesebb a **Dotmatrix Indulási Kijelző** kártya szerkesztője: ott **gépelés közben** jönnek a találatok, településsel és színes járat-jelvényekkel, és egy kattintással felveszed a megállót.",
+        "menu_options": {
+          "search": "🔎 Megálló keresése most",
+          "finish": "⏭️ Később, a kártyában adom hozzá"
         }
       }
     },
@@ -78,7 +86,7 @@
         },
         "pick": {
           "title": "Válaszd ki a megállót",
-          "description": "A nyíl a haladási irány, utána a megállóban közlekedő járatok. A már felvett megállók nem jelennek meg.",
+          "description": "Elöl a település / kerület, a nyíl a haladási irány, a végén a járatok színük szerint (🟦 busz, 🟥 troli, 🟨 villamos, 🟩 HÉV, ⬛ éjszakai). A már felvett megállók nem jelennek meg.\n\n**Tipp:** a Dotmatrix kártya szerkesztőjében gépelés közben is kereshetsz.",
           "data": {
             "stop_id": "Megálló"
           }
