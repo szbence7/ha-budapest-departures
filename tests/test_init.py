@@ -1,8 +1,9 @@
-"""Config flow and sensor tests with a mocked API."""
+"""Config flow, subentry flow, sensor and migration tests with a mocked API."""
 
 from unittest.mock import AsyncMock, patch
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -13,12 +14,21 @@ from custom_components.budapest_departures.const import DOMAIN
 
 STOPS = [
     {"id": "BKK_F04706", "name": "Templom tér", "locality": "2083", "direction": "Ny", "type": "BUS", "routes": ["64", "164"]},
-    {"id": "BKK_F04707", "name": "Templom tér", "locality": "2083", "direction": "Ny", "type": "BUS", "routes": ["64B"]},
+    {"id": "BKK_F04707", "name": "Templom tér", "locality": "2083", "direction": "K", "type": "BUS", "routes": ["64B"]},
 ]
 API = "custom_components.budapest_departures.api.FutarApi"
 
 
-async def test_full_flow(hass: HomeAssistant):
+def stop_sub(stop_id, title="Templom tér → Ny"):
+    return ConfigSubentryData(
+        data={"stop_id": stop_id, "stop_name": "Templom tér", "direction": "Ny"},
+        subentry_type="stop",
+        title=title,
+        unique_id=stop_id,
+    )
+
+
+async def test_full_flow_multi_select(hass: HomeAssistant):
     with patch(f"{API}.search_stops", AsyncMock(return_value=STOPS)):
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
         assert result["step_id"] == "user"
@@ -27,12 +37,27 @@ async def test_full_flow(hass: HomeAssistant):
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {"query": "te"})
         assert result["errors"] == {"query": "query_too_short"}
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {"query": "Templom tér"})
-        assert result["step_id"] == "stop"
+        assert result["step_id"] == "stops"
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {"stops": []})
+        assert result["errors"] == {"base": "select_one"}
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"stops": ["BKK_F04706", "BKK_F04707"]}
+        )
+        assert result["type"] is FlowResultType.MENU
         with patch("custom_components.budapest_departures.async_setup_entry", AsyncMock(return_value=True)):
-            result = await hass.config_entries.flow.async_configure(result["flow_id"], {"stop_id": "BKK_F04706"})
+            result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "finish"})
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "Templom tér → Ny"
-    assert result["data"] == {"api_key": "abc", "stop_id": "BKK_F04706", "stop_name": "Templom tér"}
+    assert result["data"] == {"api_key": "abc"}
+    entry = result["result"]
+    titles = sorted(s.title for s in entry.subentries.values())
+    assert titles == ["Templom tér → K", "Templom tér → Ny"]
+
+
+async def test_single_instance(hass: HomeAssistant):
+    MockConfigEntry(domain=DOMAIN, version=2, data={"api_key": "x"}).add_to_hass(hass)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "single_instance_allowed"
 
 
 async def test_invalid_key(hass: HomeAssistant):
@@ -42,12 +67,13 @@ async def test_invalid_key(hass: HomeAssistant):
     assert result["errors"] == {"base": "invalid_auth"}
 
 
-async def test_sensor(hass: HomeAssistant, departures_response, loop_trip, plain_trip):
+async def test_sensor_and_add_stop(hass: HomeAssistant, departures_response, loop_trip, plain_trip):
     entry = MockConfigEntry(
         domain=DOMAIN,
-        unique_id="BKK_F04706",
-        data={"api_key": "abc", "stop_id": "BKK_F04706", "stop_name": "Templom tér"},
+        version=2,
+        data={"api_key": "abc"},
         options={"max_departures": 2},
+        subentries_data=[stop_sub("BKK_F04706")],
     )
     entry.add_to_hass(hass)
 
@@ -56,30 +82,59 @@ async def test_sensor(hass: HomeAssistant, departures_response, loop_trip, plain
 
     with patch(f"{API}.departures", AsyncMock(return_value=departures_response)), patch(
         f"{API}.trip_details", AsyncMock(side_effect=trip_details)
-    ) as trip_mock:
+    ) as trip_mock, patch(f"{API}.search_stops", AsyncMock(return_value=STOPS)):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-    states = [s for s in hass.states.async_all("sensor")]
-    assert len(states) == 1
-    state = states[0]
-    assert state.state == "0"
-    assert state.attributes["stop_name"] == "Templom tér"
-    assert state.attributes["alert"] == "57: Terelés"
-    deps = state.attributes["departures"]
-    assert len(deps) == 2  # max_departures option
-    assert deps[0]["route"] == "57"
-    assert "trip_id" not in deps[0]
-    # 3 distinct route|headsign|seq keys -> 3 lookups, cached afterwards
-    assert trip_mock.await_count == 3
+        state = hass.states.get("sensor.templom_ter_ny_kovetkezo_indulas")
+        assert state is not None, [s.entity_id for s in hass.states.async_all()]
+        assert state.state == "0"
+        assert state.attributes["stop_name"] == "Templom tér"
+        assert state.attributes["direction"] == "Ny"
+        assert state.attributes["alert"] == "57: Terelés"
+        deps = state.attributes["departures"]
+        assert len(deps) == 2
+        assert deps[0]["route"] == "57"
+        assert "trip_id" not in deps[0]
+        assert trip_mock.await_count == 3
+
+        # "Megálló hozzáadása": already added stop is hidden from the list
+        result = await hass.config_entries.subentries.async_init(
+            (entry.entry_id, "stop"), context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.subentries.async_configure(result["flow_id"], {"query": "Templom tér"})
+        assert result["step_id"] == "pick"
+        options = result["data_schema"].schema["stop_id"].config["options"]
+        assert [o["value"] for o in options] == ["BKK_F04707"]
+        result = await hass.config_entries.subentries.async_configure(result["flow_id"], {"stop_id": "BKK_F04707"})
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        await hass.async_block_till_done()
+
+    assert len(entry.subentries) == 2
+    assert len(hass.states.async_all("sensor")) == 2
 
 
 async def test_auth_failure_starts_reauth(hass: HomeAssistant):
-    entry = MockConfigEntry(domain=DOMAIN, unique_id="X", data={"api_key": "abc", "stop_id": "X", "stop_name": "X"})
+    entry = MockConfigEntry(domain=DOMAIN, version=2, data={"api_key": "abc"}, subentries_data=[stop_sub("X")])
     entry.add_to_hass(hass)
     with patch(f"{API}.departures", AsyncMock(side_effect=FutarAuthError)):
         assert not await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
     assert entry.state is config_entries.ConfigEntryState.SETUP_ERROR
-    flows = hass.config_entries.flow.async_progress()
-    assert any(f["context"]["source"] == "reauth" for f in flows)
+    assert any(f["context"]["source"] == "reauth" for f in hass.config_entries.flow.async_progress())
+
+
+async def test_migrate_v1(hass: HomeAssistant, departures_response, plain_trip):
+    entry = MockConfigEntry(
+        domain=DOMAIN, version=1, unique_id="BKK_F04706",
+        data={"api_key": "abc", "stop_id": "BKK_F04706", "stop_name": "Templom tér"},
+    )
+    entry.add_to_hass(hass)
+    with patch(f"{API}.departures", AsyncMock(return_value=departures_response)), patch(
+        f"{API}.trip_details", AsyncMock(return_value=plain_trip)
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert entry.version == 2
+    assert entry.data == {"api_key": "abc"}
+    assert [s.unique_id for s in entry.subentries.values()] == ["BKK_F04706"]
