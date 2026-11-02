@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "BKK FUTÁR API kulcs",
-        "description": "Ingyenes API kulcsot itt kérhetsz: https://opendata.bkk.hu",
+        "description": "Ingyenes API kulcsot itt kérhetsz: {url}",
         "data": {
           "api_key": "API kulcs"
         }
