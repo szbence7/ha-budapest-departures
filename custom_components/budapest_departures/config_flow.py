@@ -102,6 +102,7 @@ class BudapestDeparturesConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders={"url": "https://opendata.bkk.hu"},
         )
 
     async def async_step_search(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
