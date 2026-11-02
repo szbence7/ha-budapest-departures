@@ -1,6 +1,7 @@
 """Parser unit tests."""
 
-from custom_components.budapest_departures.api import compass
+from custom_components.budapest_departures.api import compass, place_name
+from custom_components.budapest_departures.config_flow import color_square, stop_label
 from custom_components.budapest_departures.parser import (
     parse_departures,
     resolve_loop_headsign,
@@ -47,3 +48,20 @@ def test_compass():
     assert compass("89") == "K"
     assert compass("0") == "É"
     assert compass("") == ""
+
+
+def test_place_name():
+    assert place_name("2083") == "Solymár"
+    assert place_name("1191") == "Budapest XIX. kerület"
+    assert place_name("") == ""
+
+
+def test_labels():
+    assert color_square("#009EE3") == "🟦"
+    assert color_square("#E41F18") == "🟥"
+    assert color_square("#FFD800") == "🟨"
+    assert color_square("#000000") == "⬛"
+    label = stop_label({"name": "Templom tér", "place": "Solymár", "direction": "Ny",
+                        "routes": [{"name": "64", "color": "#009EE3"}, {"name": "72", "color": "#E41F18"}]})
+    assert label.startswith("Solymár · Templom tér → Ny")
+    assert "🟦 64" in label and "🟥 72" in label
