@@ -1,4 +1,4 @@
-"""Next-departure sensor; the full board is in the attributes."""
+"""Next-departure sensor per stop; the full board is in the attributes."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTRIBUTION, CONF_MAX_DEPARTURES, DEFAULT_MAX_DEPARTURES, DOMAIN
+from .const import ATTRIBUTION, CONF_DIRECTION, CONF_MAX_DEPARTURES, DEFAULT_MAX_DEPARTURES, DOMAIN
 from .coordinator import FutarConfigEntry, FutarCoordinator
 
 
@@ -20,8 +20,9 @@ async def async_setup_entry(
     entry: FutarConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up the sensor."""
-    async_add_entities([NextDepartureSensor(entry.runtime_data)])
+    """One sensor per stop subentry."""
+    for subentry_id, coordinator in entry.runtime_data.coordinators.items():
+        async_add_entities([NextDepartureSensor(coordinator)], config_subentry_id=subentry_id)
 
 
 class NextDepartureSensor(CoordinatorEntity[FutarCoordinator], SensorEntity):
@@ -32,17 +33,20 @@ class NextDepartureSensor(CoordinatorEntity[FutarCoordinator], SensorEntity):
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
     _attr_attribution = ATTRIBUTION
+    _attr_icon = "mdi:bus-clock"
     # The board changes every poll: keep it out of the recorder database.
     _unrecorded_attributes = frozenset({"departures", "alert"})
 
     def __init__(self, coordinator: FutarCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.stop_id}_next_departure"
+        direction = coordinator.subentry.data.get(CONF_DIRECTION)
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.stop_id)},
-            name=coordinator.stop_name,
+            name=coordinator.subentry.title or coordinator.stop_name,
             manufacturer="BKK FUTÁR",
-            model=coordinator.stop_id,
+            model=f"Irány: {direction}" if direction else None,
+            serial_number=coordinator.stop_id,
             entry_type=DeviceEntryType.SERVICE,
         )
 
@@ -62,6 +66,7 @@ class NextDepartureSensor(CoordinatorEntity[FutarCoordinator], SensorEntity):
         return {
             "stop_id": self.coordinator.stop_id,
             "stop_name": data.get("stop_name", self.coordinator.stop_name),
+            "direction": self.coordinator.subentry.data.get(CONF_DIRECTION, ""),
             "departures": [
                 {k: v for k, v in dep.items() if k not in ("trip_id", "route_id", "stop_sequence")}
                 for dep in self._departures[:limit]

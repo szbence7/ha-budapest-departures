@@ -23,3 +23,8 @@ DEFAULT_MINUTES_AFTER = 60
 DEFAULT_MAX_DEPARTURES = 10
 
 ATTRIBUTION = "Adatok: BKK FUTÁR (opendata.bkk.hu)"
+
+SUBENTRY_STOP = "stop"
+CONF_STOPS = "stops"
+CONF_DIRECTION = "direction"
+API_KEY_URL = "https://opendata.bkk.hu"

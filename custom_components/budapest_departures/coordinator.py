@@ -1,16 +1,15 @@
-"""Data update coordinator for one stop."""
+"""Data update coordinator: one per stop (config subentry)."""
 
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_API_KEY
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import FutarApi, FutarAuthError, FutarError
@@ -27,7 +26,16 @@ from .parser import parse_departures, resolve_loop_headsign, service_alert_text,
 
 _LOGGER = logging.getLogger(__name__)
 
-type FutarConfigEntry = ConfigEntry["FutarCoordinator"]
+
+@dataclass
+class RuntimeData:
+    """Shared API client + one coordinator per stop subentry."""
+
+    api: FutarApi
+    coordinators: dict[str, "FutarCoordinator"] = field(default_factory=dict)
+
+
+type FutarConfigEntry = ConfigEntry[RuntimeData]
 
 
 class FutarCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -35,18 +43,21 @@ class FutarCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     config_entry: FutarConfigEntry
 
-    def __init__(self, hass: HomeAssistant, entry: FutarConfigEntry) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: FutarConfigEntry, subentry: ConfigSubentry, api: FutarApi
+    ) -> None:
         interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         super().__init__(
             hass,
             _LOGGER,
             config_entry=entry,
-            name=f"{DOMAIN}_{entry.data[CONF_STOP_ID]}",
+            name=f"{DOMAIN}_{subentry.data[CONF_STOP_ID]}",
             update_interval=timedelta(seconds=interval),
         )
-        self.api = FutarApi(async_get_clientsession(hass), entry.data[CONF_API_KEY])
-        self.stop_id: str = entry.data[CONF_STOP_ID]
-        self.stop_name: str = entry.data.get(CONF_STOP_NAME) or self.stop_id
+        self.api = api
+        self.subentry = subentry
+        self.stop_id: str = subentry.data[CONF_STOP_ID]
+        self.stop_name: str = subentry.data.get(CONF_STOP_NAME) or self.stop_id
         # route|headsign|stop_sequence -> resolved headsign (route structure rarely changes)
         self._headsign_cache: dict[str, str] = {}
 
