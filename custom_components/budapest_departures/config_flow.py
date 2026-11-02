@@ -41,6 +41,7 @@ from .api import FutarApi, FutarAuthError, FutarConnectionError, FutarError
 from .const import (
     API_KEY_URL,
     CONF_DIRECTION,
+    CONF_PLACE,
     CONF_MAX_DEPARTURES,
     CONF_MINUTES_AFTER,
     CONF_QUERY,
@@ -61,26 +62,61 @@ MAX_RESULTS = 40
 PLACEHOLDERS = {"url": API_KEY_URL}
 
 
+def color_square(hex_color: str) -> str:
+    """Closest coloured square emoji for a route colour (form labels are plain text)."""
+    h = hex_color.lstrip("#")
+    try:
+        r, g, b = (int(h[i : i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return "🟦"
+    mx, mn = max(r, g, b), min(r, g, b)
+    if mx < 60:
+        return "⬛"
+    if mx - mn < 40:
+        return "⬜" if mx > 200 else "⬛"
+    if r >= g and r >= b:
+        if g > 150:
+            return "🟨"
+        if g > 90:
+            return "🟧"
+        return "🟪" if b > 80 and r - b < 70 else "🟥"
+    if g >= r and g >= b:
+        return "🟨" if r > 180 else "🟩"
+    return "🟪" if r > 120 else "🟦"
+
+
+def routes_text(routes: list[dict[str, str]], limit: int = 10) -> str:
+    """'🟦 64, 164 · 🟥 72' grouped by colour."""
+    groups: dict[str, list[str]] = {}
+    for route in routes[:limit]:
+        groups.setdefault(color_square(route["color"]), []).append(route["name"])
+    text = "   ".join(f"{sq} {', '.join(names)}" for sq, names in groups.items())
+    return text + (" …" if len(routes) > limit else "")
+
+
 def stop_label(stop: dict[str, Any]) -> str:
-    """Human readable line for the stop list."""
-    parts = [stop["name"]]
+    """'Solymár · Templom tér → Ny   🟦 64, 164' for the stop list."""
+    head = f"{stop['place']} · {stop['name']}" if stop.get("place") else stop["name"]
     if stop["direction"]:
-        parts.append(f"→ {stop['direction']}")
-    routes = stop["routes"]
-    if routes:
-        parts.append("· " + ", ".join(routes[:8]) + (" …" if len(routes) > 8 else ""))
-    if stop["locality"]:
-        parts.append(f"({stop['locality']})")
-    return " ".join(parts)
+        head += f" → {stop['direction']}"
+    routes = routes_text(stop["routes"])
+    return f"{head}      {routes}" if routes else head
 
 
 def stop_title(stop: dict[str, Any]) -> str:
-    return f"{stop['name']} → {stop['direction']}" if stop["direction"] else stop["name"]
+    """'Templom tér → Ny · Solymár' (settlement keeps same-named stops apart)."""
+    title = f"{stop['name']} → {stop['direction']}" if stop["direction"] else stop["name"]
+    return f"{title} · {stop['place']}" if stop.get("place") else title
 
 
 def stop_subentry(stop: dict[str, Any]) -> ConfigSubentryData:
     return ConfigSubentryData(
-        data={CONF_STOP_ID: stop["id"], CONF_STOP_NAME: stop["name"], CONF_DIRECTION: stop["direction"]},
+        data={
+            CONF_STOP_ID: stop["id"],
+            CONF_STOP_NAME: stop["name"],
+            CONF_DIRECTION: stop["direction"],
+            CONF_PLACE: stop.get("place", ""),
+        },
         subentry_type=SUBENTRY_STOP,
         title=stop_title(stop),
         unique_id=stop["id"],
@@ -161,7 +197,7 @@ class BudapestDeparturesConfigFlow(ConfigFlow, domain=DOMAIN):
             api_key = user_input[CONF_API_KEY].strip()
             if not (error := await validate_key(self.hass, api_key)):
                 self._api_key = api_key
-                return await self.async_step_search()
+                return await self.async_step_start()
             errors["base"] = error
 
         return self.async_show_form(
@@ -172,6 +208,10 @@ class BudapestDeparturesConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders=PLACEHOLDERS,
         )
+
+    async def async_step_start(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Step 2: add stops now, or later from the card editor (live search)."""
+        return self.async_show_menu(step_id="start", menu_options=["search", "finish"])
 
     async def async_step_search(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Step 2: search stops by name."""

@@ -11,7 +11,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTRIBUTION, CONF_DIRECTION, CONF_MAX_DEPARTURES, DEFAULT_MAX_DEPARTURES, DOMAIN
+from .const import ATTRIBUTION, CONF_DIRECTION, CONF_PLACE, CONF_MAX_DEPARTURES, DEFAULT_MAX_DEPARTURES, DOMAIN
 from .coordinator import FutarConfigEntry, FutarCoordinator
 
 
@@ -41,11 +41,12 @@ class NextDepartureSensor(CoordinatorEntity[FutarCoordinator], SensorEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.stop_id}_next_departure"
         direction = coordinator.subentry.data.get(CONF_DIRECTION)
+        place = coordinator.subentry.data.get(CONF_PLACE)
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.stop_id)},
             name=coordinator.subentry.title or coordinator.stop_name,
             manufacturer="BKK FUTÁR",
-            model=f"Irány: {direction}" if direction else None,
+            model=" · ".join(x for x in (place, f"Irány: {direction}" if direction else "") if x) or None,
             serial_number=coordinator.stop_id,
             entry_type=DeviceEntryType.SERVICE,
         )
@@ -67,6 +68,7 @@ class NextDepartureSensor(CoordinatorEntity[FutarCoordinator], SensorEntity):
             "stop_id": self.coordinator.stop_id,
             "stop_name": data.get("stop_name", self.coordinator.stop_name),
             "direction": self.coordinator.subentry.data.get(CONF_DIRECTION, ""),
+            "place": self.coordinator.subentry.data.get(CONF_PLACE, ""),
             "departures": [
                 {k: v for k, v in dep.items() if k not in ("trip_id", "route_id", "stop_sequence")}
                 for dep in self._departures[:limit]

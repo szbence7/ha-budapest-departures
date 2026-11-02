@@ -10,15 +10,26 @@ import logging
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.const import CONF_API_KEY, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 
-from .api import FutarApi
-from .const import CONF_STOP_ID, CONF_STOP_NAME, SUBENTRY_STOP
+from . import websocket
+from .api import FutarApi, _load_postcodes
+from .const import CONF_STOP_ID, CONF_STOP_NAME, DOMAIN, SUBENTRY_STOP
 from .coordinator import FutarConfigEntry, FutarCoordinator, RuntimeData
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the websocket commands used by the card editor (live stop search)."""
+    websocket.async_register(hass)
+    await hass.async_add_executor_job(_load_postcodes)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: FutarConfigEntry) -> bool:

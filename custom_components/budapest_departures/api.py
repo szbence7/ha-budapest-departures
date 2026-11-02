@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import math
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -37,6 +39,43 @@ def compass(direction: str | None) -> str:
     if math.isnan(deg):
         return ""
     return _COMPASS[round((deg % 360) / 45) % 8]
+
+
+_ROMAN = [
+    "", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII",
+    "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX", "XXI", "XXII", "XXIII",
+]
+_POSTCODES: dict[str, str] | None = None
+
+
+def _load_postcodes() -> dict[str, str]:
+    """Postcode -> settlement (Magyar Posta + KSH data, via github.com/ferenci-tamas/IrszHnk)."""
+    global _POSTCODES  # noqa: PLW0603
+    if _POSTCODES is None:
+        path = Path(__file__).with_name("postcodes.json")
+        try:
+            _POSTCODES = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _POSTCODES = {}
+    return _POSTCODES
+
+
+def place_name(postcode: str | None) -> str:
+    """Settlement or Budapest district for a postcode, e.g. 'Solymár', 'Budapest XIX. kerület'."""
+    code = (postcode or "").strip()
+    if not code:
+        return ""
+    if len(code) == 4 and code.startswith("1") and code.isdigit():
+        district = int(code[1:3])
+        if 1 <= district <= 23:
+            return f"Budapest {_ROMAN[district]}. kerület"
+    name = _load_postcodes().get(code, "")
+    return name or code
+
+
+def _hex(value: str | None, default: str) -> str:
+    value = (value or "").strip().lstrip("#")
+    return f"#{(value if len(value) in (3, 6) else default).upper()}"
 
 
 class FutarApi:
@@ -85,19 +124,32 @@ class FutarApi:
             stop = stops.get(stop_id)
             if not stop or stop.get("locationType", 0) != 0:
                 continue
-            short_names: list[str] = []
+            route_list: list[dict[str, str]] = []
+            seen: set[str] = set()
             for route_id in stop.get("routeIds", []) or []:
-                name = (routes.get(route_id) or {}).get("shortName")
-                if name and name not in short_names:
-                    short_names.append(name)
+                route = routes.get(route_id) or {}
+                name = route.get("shortName")
+                if not name or name in seen:
+                    continue
+                seen.add(name)
+                route_list.append(
+                    {
+                        "name": name,
+                        "color": _hex(route.get("color"), "009EE3"),
+                        "text_color": _hex(route.get("textColor"), "FFFFFF"),
+                        "type": route.get("type") or "",
+                    }
+                )
+            locality = stop.get("localityName") or ""
             result.append(
                 {
                     "id": stop_id,
                     "name": stop.get("name") or stop_id,
-                    "locality": stop.get("localityName") or "",
+                    "locality": locality,
+                    "place": place_name(locality),
                     "direction": compass(stop.get("direction")),
                     "type": stop.get("type") or "",
-                    "routes": short_names,
+                    "routes": route_list,
                 }
             )
         return result
