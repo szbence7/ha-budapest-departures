@@ -2,54 +2,114 @@
   "config": {
     "step": {
       "user": {
-        "title": "BKK FUTÁR API kulcs",
-        "description": "Ingyenes API kulcsot itt kérhetsz: {url}",
+        "title": "1/3 · BKK FUTÁR API kulcs",
+        "description": "Az indulásokat a BKK hivatalos nyílt API-ja adja, ehhez **saját, ingyenes API kulcs** kell.\n\n**Így kérhetsz kulcsot (2 perc):**\n1. Nyisd meg: {url}\n2. Jobb felül **Log in** → regisztrálj (e-mail + jelszó), majd lépj be\n3. Bal oldalt **Key management** → hozz létre egy új kulcsot\n4. Másold ki a kulcsot, és illeszd be ide.\n\nA kulcs csak a Home Assistantodban tárolódik.",
         "data": {
           "api_key": "API kulcs"
+        },
+        "data_description": {
+          "api_key": "Pl. 1a2b3c4d-…  (36 karakter)"
         }
       },
       "search": {
-        "title": "Megálló keresése",
-        "description": "Írd be a megálló nevének legalább 3 betűjét (pl. Deák Ferenc tér). Minden irány külön megálló.",
+        "title": "2/3 · Megálló keresése",
+        "description": "Írd be a megálló nevét (legalább 3 betű), pl. **Deák Ferenc tér** vagy **Templom tér**.\n\nMár kiválasztva:\n{selected}",
         "data": {
           "query": "Megálló neve"
         }
       },
-      "stop": {
-        "title": "Válaszd ki a megállót",
-        "description": "A nyíl a haladási irány, utána a megállóban közlekedő járatok.",
+      "stops": {
+        "title": "3/3 · Jelöld be a megállókat",
+        "description": "Egy megállónak irányonként külön oszlopa van. A **nyíl** a haladási irány (É, K, D, Ny…), utána a megállóban közlekedő **járatok**, zárójelben az irányítószám.\n\nTöbbet is bejelölhetsz.",
         "data": {
-          "stop_id": "Megálló"
+          "stops": "Megállók"
+        }
+      },
+      "more": {
+        "title": "Kész vagy?",
+        "description": "Kiválasztott megállók:\n{selected}",
+        "menu_options": {
+          "search": "➕ Másik megálló keresése",
+          "finish": "✅ Kész, mentés"
         }
       },
       "reauth_confirm": {
-        "title": "Új API kulcs",
-        "description": "A BKK API elutasította a mentett kulcsot. Adj meg egy érvényeset.",
+        "title": "Új API kulcs kell",
+        "description": "A BKK API elutasította a mentett kulcsot (lejárt vagy törölték). Kérj újat itt: {url}",
+        "data": {
+          "api_key": "API kulcs"
+        }
+      },
+      "reconfigure": {
+        "title": "API kulcs cseréje",
+        "description": "Add meg az új kulcsot. Kulcsot itt kérhetsz: {url}",
         "data": {
           "api_key": "API kulcs"
         }
       }
     },
     "error": {
-      "invalid_auth": "Érvénytelen API kulcs.",
-      "cannot_connect": "A BKK API nem érhető el.",
+      "invalid_auth": "Érvénytelen API kulcs. Ellenőrizd, hogy a teljes kulcsot másoltad-e ki.",
+      "cannot_connect": "A BKK API most nem érhető el. Próbáld újra később.",
       "unknown": "Váratlan hiba a BKK API-tól.",
       "query_too_short": "Legalább 3 karaktert írj be.",
-      "no_stops": "Nincs találat. Próbáld másképp írni."
+      "no_stops": "Nincs ilyen megálló. Próbáld másképp (pl. ékezettel vagy rövidebben).",
+      "select_one": "Jelölj be legalább egy megállót."
     },
     "abort": {
-      "already_configured": "Ez a megálló már hozzá van adva.",
-      "reauth_successful": "API kulcs frissítve."
+      "single_instance_allowed": "Az integráció már be van állítva. Új megállót az integráció oldalán a **Megálló hozzáadása** gombbal adhatsz hozzá.",
+      "reauth_successful": "API kulcs frissítve.",
+      "reconfigure_successful": "API kulcs frissítve."
+    }
+  },
+  "config_subentries": {
+    "stop": {
+      "initiate_flow": {
+        "user": "Megálló hozzáadása"
+      },
+      "entry_type": "Megálló",
+      "step": {
+        "user": {
+          "title": "Megálló keresése",
+          "description": "Írd be a megálló nevét (legalább 3 betű).",
+          "data": {
+            "query": "Megálló neve"
+          }
+        },
+        "pick": {
+          "title": "Válaszd ki a megállót",
+          "description": "A nyíl a haladási irány, utána a megállóban közlekedő járatok. A már felvett megállók nem jelennek meg.",
+          "data": {
+            "stop_id": "Megálló"
+          }
+        }
+      },
+      "error": {
+        "invalid_auth": "Érvénytelen API kulcs.",
+        "cannot_connect": "A BKK API most nem érhető el.",
+        "unknown": "Váratlan hiba a BKK API-tól.",
+        "query_too_short": "Legalább 3 karaktert írj be.",
+        "no_stops": "Nincs ilyen megálló.",
+        "all_added": "Az összes találat már fel van véve."
+      },
+      "abort": {
+        "already_configured": "Ez a megálló már fel van véve."
+      }
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Kijelző beállítások",
+        "title": "Beállítások",
         "data": {
           "scan_interval": "Frissítési idő",
           "minutes_after": "Időablak",
-          "max_departures": "Attribútumban tárolt indulások"
+          "max_departures": "Tárolt indulások száma"
+        },
+        "data_description": {
+          "scan_interval": "Ilyen gyakran kérdezi le a BKK-t. 30 mp bőven elég, kíméld az ingyenes API-t.",
+          "minutes_after": "Ennyi percre előre nézi az indulásokat.",
+          "max_departures": "Ennyi indulás kerül a szenzor attribútumába (a kártya ebből dolgozik)."
         }
       }
     }
