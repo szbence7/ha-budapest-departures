@@ -1,3 +1,5 @@
+<img src="images/icon.png" width="96" align="right" alt="ikon">
+
 # 🚏 Budapesti Indulások – Home Assistant integráció
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
