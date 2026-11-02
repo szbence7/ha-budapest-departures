@@ -28,7 +28,7 @@ A **[Dotmatrix Indulási Kijelző](https://github.com/szbence7/dot-matrix-depart
 ## Mit tud?
 
 - ✅ **Mindenki a saját, ingyenes API kulcsát használja** – a beállításkor kéri, és csak a te Home Assistantodban tárolódik
-- ✅ **Megálló kiválasztás listából**: beírod a nevet, és bepipálod, melyik megálló(k) kell(enek) – irány és járatok alapján könnyű eligazodni
+- ✅ **Élő megállókeresés** a kártya szerkesztőjében: gépelés közben jönnek a találatok településsel, iránnyal és színes járat-jelvényekkel
 - ✅ Egyszerre **több megálló** egy beállításban, később bármikor bővíthető
 - ✅ Valós idejű (előrejelzett) indulási idők, a törölt járatokat kiszűri
 - ✅ Körjáratoknál (pl. 57) a fordulópont után a **valódi végállomást** mutatja
@@ -68,35 +68,27 @@ Az adatokat a BKK nyílt API-ja adja. Ehhez **mindenkinek saját kulcs kell** (i
 
 **Beállítások → Eszközök és szolgáltatások → Integráció hozzáadása → _Budapesti Indulások_**
 
-### 1/3 · API kulcs
+### 1/2 · API kulcs
 
 A párbeszédablakban le van írva, hogyan kérhetsz kulcsot. Illeszd be, és nyomd meg a **Mehet** gombot. A rendszer azonnal ellenőrzi, hogy a kulcs működik-e.
 
 ![API kulcs](images/1-api-kulcs.png)
 
-### 2/3 · Megálló keresése
+### 2/2 · Megállók
 
-Írd be a megálló nevét (legalább 3 betű), pl. *Deák Ferenc tér*, *Móricz Zsigmond körtér*, *Templom tér*.
+Két lehetőséged van:
 
-![Keresés](images/2-kereses.png)
+**A) A legkényelmesebb: a kártya szerkesztőjében, gépelés közben** ⭐
 
-### 3/3 · Jelöld be a megállókat
+Válaszd a *„Később, a kártyában adom hozzá”* lehetőséget, tedd fel a **[Dotmatrix Indulási Kijelző](https://github.com/szbence7/dot-matrix-departure-card)** kártyát a dashboardra, és a szerkesztőjében kezdd el gépelni a megálló nevét. **Már gépelés közben** jönnek a találatok: elöl a **település vagy kerület**, a **haladási irány**, és a megállóban közlekedő járatok **színes jelvényekkel** (kék busz, piros troli, sárga villamos, fekete éjszakai…). Kattintasz, és a megálló azonnal felkerül.
 
-A listában **irányonként külön sor** van, mert egy megállónak általában két oldala (oszlopa) van:
+![Élő keresés a kártya szerkesztőjében](images/kartya-kereso.png)
 
-- **→ Ny / K / É / D …** a haladási irány
-- utána a megállóban közlekedő **járatok**
-- zárójelben az **irányítószám** (így a hasonló nevű megállók is megkülönböztethetők, pl. Templom tér Solymáron és Budaörsön)
+**B) Itt, a beállításban**
 
-Többet is bepipálhatsz.
+Válaszd a *„Megálló keresése most”* lehetőséget, írd be a nevet, és a listából pipáld ki, ami kell (többet is lehet). A Home Assistant beállító ablakai nem tudnak gépelés közben keresni, ezért itt a találatok a név beírása után jönnek, a járatok színét pedig színes négyzetek jelzik.
 
 ![Megállók kiválasztása](images/3-megallok.png)
-
-### Kész vagy?
-
-Kereshetsz **további megállót** (pl. a munkahelyed melletti metrót), vagy **mentheted**.
-
-![Kész](images/4-kesz.png)
 
 Minden megálló külön **eszköz** lesz, egy-egy szenzorral.
 
@@ -110,12 +102,10 @@ Az integráció oldalán (**Beállítások → Eszközök és szolgáltatások �
 
 | Mit szeretnél? | Hogyan? |
 |---|---|
-| **Új megálló** | **+ Megálló hozzáadása** gomb (a már felvett megállók nem jelennek meg a listában) |
+| **Új megálló** | a kártya szerkesztőjében gépelve, vagy itt a **+ Megálló hozzáadása** gombbal |
 | **Megálló törlése** | a megálló sorában **⋮ → Törlés** |
 | **Frissítési idő, időablak** | a **fogaskerék** ikon a *BKK FUTÁR* sorban |
 | **API kulcs cseréje** | *BKK FUTÁR* sor **⋮ → Újrakonfigurálás** |
-
-![Megálló hozzáadása](images/6-megallo-hozzaadasa.png)
 
 **Beállítások (fogaskerék):**
 
@@ -188,7 +178,7 @@ Igen, a régi beállítást automatikusan átalakítja az új formára.
 
 ## Fontos
 
-Nem hivatalos projekt, a BKK Zrt.-hez nincs köze. Adatok: BKK FUTÁR nyílt adatok (opendata.bkk.hu).
+Nem hivatalos projekt, a BKK Zrt.-hez nincs köze. Adatok: BKK FUTÁR nyílt adatok (opendata.bkk.hu). A települések nevét az irányítószámból a Magyar Posta és a KSH nyilvános adatai alapján adjuk meg ([ferenci-tamas/IrszHnk](https://github.com/ferenci-tamas/IrszHnk) összerendelés).
 
 ## Támogatás
 
