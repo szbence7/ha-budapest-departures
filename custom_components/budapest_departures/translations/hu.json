@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "BKK FUTÁR API kulcs",
+        "description": "Ingyenes API kulcsot itt kérhetsz: https://opendata.bkk.hu",
+        "data": {
+          "api_key": "API kulcs"
+        }
+      },
+      "search": {
+        "title": "Megálló keresése",
+        "description": "Írd be a megálló nevének legalább 3 betűjét (pl. Deák Ferenc tér). Minden irány külön megálló.",
+        "data": {
+          "query": "Megálló neve"
+        }
+      },
+      "stop": {
+        "title": "Válaszd ki a megállót",
+        "description": "A nyíl a haladási irány, utána a megállóban közlekedő járatok.",
+        "data": {
+          "stop_id": "Megálló"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Új API kulcs",
+        "description": "A BKK API elutasította a mentett kulcsot. Adj meg egy érvényeset.",
+        "data": {
+          "api_key": "API kulcs"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Érvénytelen API kulcs.",
+      "cannot_connect": "A BKK API nem érhető el.",
+      "unknown": "Váratlan hiba a BKK API-tól.",
+      "query_too_short": "Legalább 3 karaktert írj be.",
+      "no_stops": "Nincs találat. Próbáld másképp írni."
+    },
+    "abort": {
+      "already_configured": "Ez a megálló már hozzá van adva.",
+      "reauth_successful": "API kulcs frissítve."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Kijelző beállítások",
+        "data": {
+          "scan_interval": "Frissítési idő",
+          "minutes_after": "Időablak",
+          "max_departures": "Attribútumban tárolt indulások"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "next_departure": {
+        "name": "Következő indulás"
+      }
+    }
+  }
+}
