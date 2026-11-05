@@ -18,6 +18,7 @@ from . import websocket
 from .api import FutarApi, _load_postcodes
 from .const import CONF_STOP_ID, CONF_STOP_NAME, DOMAIN, SUBENTRY_STOP
 from .coordinator import FutarConfigEntry, FutarCoordinator, RuntimeData
+from .frontend import async_setup_frontend
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the websocket commands used by the card editor (live stop search)."""
+    await async_setup_frontend(hass)
     websocket.async_register(hass)
     await hass.async_add_executor_job(_load_postcodes)
     return True

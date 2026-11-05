@@ -7,7 +7,7 @@
 
 Bármelyik budapesti és agglomerációs megálló **valós idejű indulásai** Home Assistantban, a BKK FUTÁR hivatalos nyílt adataiból. Busz, villamos, troli, metró, HÉV és a Volánbusz agglomerációs járatai is.
 
-A **[Dotmatrix Indulási Kijelző](https://github.com/szbence7/dot-matrix-departure-card)** kártyával olyan, mint egy igazi FUTÁR kijelző:
+Az integrációval együtt települő **Dotmatrix Indulási Kijelző** kártyával olyan, mint egy igazi FUTÁR kijelző:
 
 ![Dashboard](images/dashboard.png)
 
@@ -70,6 +70,23 @@ Az integráció egyéni tárolóként is hozzáadható:
 2. Tároló: `https://github.com/szbence7/ha-budapest-departures`, típus: **Integráció** → **Hozzáadás**
 3. Keresd meg a **Budapesti Indulások** integrációt → **Letöltés**
 4. **Indítsd újra** a Home Assistantot, majd folytasd az alábbi beállítással.
+
+---
+
+### A kártya telepítése és frissítés korábbi verzióról
+
+A **0.4.0** verziótól a Dotmatrix Indulási Kijelző az integráció része: nem kell külön HACS Dashboard-tárolót telepíteni. Az integráció beállításakor automatikusan hozzáadja a kártya JavaScript-erőforrását a Home Assistantban tárolt Lovelace-erőforrásokhoz. Ezután frissítsd a böngészőt, és a dashboard szerkesztőjében válaszd a **Dotmatrix Indulási Kijelző** kártyát (`custom:dot-matrix-departure-card`).
+
+Ha már külön telepítetted a kártyát, a szokásos HACS-os vagy `/local/dot-matrix-departure-card.js` erőforrást az integráció automatikusan átállítja a csomagolt változatra. A meglévő dashboard-kártyák és beállításaik megmaradnak. Ezután a külön kártyacsomagot eltávolíthatod a HACS-ból, és frissítsd a böngészőt. Egyedi elérési útnál a régi erőforrást kézzel távolítsd el, hogy csak egy példány töltődjön be.
+
+**YAML-ban kezelt Lovelace-erőforrásoknál** az automatikus módosítás helyett a meglévő `lovelace: resources:` listába add hozzá az alábbi elemet, a régi kártya-erőforrás helyére:
+
+```yaml
+- url: /budapest_departures/dot-matrix-departure-card.js?v=0.4.0
+  type: module
+```
+
+Töltsd újra a Lovelace-erőforrásokat (vagy indítsd újra a Home Assistantot), majd frissítsd a böngészőt. Frissítéskor a verziószámot is igazítsd az új kiadáshoz.
 
 ---
 
