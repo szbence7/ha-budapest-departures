@@ -2,7 +2,7 @@
 
 # 🚏 Budapesti Indulások – Home Assistant integráció
 
-[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
+[![HACS](https://img.shields.io/badge/HACS-Default-blue.svg)](https://hacs.xyz)
 [![Verzió](https://img.shields.io/github/v/release/szbence7/ha-budapest-departures?label=verzi%C3%B3)](https://github.com/szbence7/ha-budapest-departures/releases)
 
 Bármelyik budapesti és agglomerációs megálló **valós idejű indulásai** Home Assistantban, a BKK FUTÁR hivatalos nyílt adataiból. Busz, villamos, troli, metró, HÉV és a Volánbusz agglomerációs járatai is.
@@ -57,10 +57,19 @@ Az adatokat a BKK nyílt API-ja adja. Ehhez **mindenkinek saját kulcs kell** (i
 
 ## 2. Telepítés HACS-ból
 
-1. Home Assistant → **HACS** → jobb felső **⋮** → **Egyéni tárolók** (Custom repositories)
+1. Home Assistant → **HACS** → keress rá: **Budapesti Indulások**
+2. Nyisd meg az integrációt → **Letöltés**
+3. **Indítsd újra** a Home Assistantot (Beállítások → Rendszer → újraindítás)
+4. Folytasd az alábbi **Beállítás lépésről lépésre** résszel.
+
+### Ha nem találod a HACS keresőjében (tartalék megoldás)
+
+Az integráció egyéni tárolóként is hozzáadható:
+
+1. **HACS** → jobb felső **⋮** → **Egyéni tárolók** (Custom repositories)
 2. Tároló: `https://github.com/szbence7/ha-budapest-departures`, típus: **Integráció** → **Hozzáadás**
-3. Keresd meg a **Budapesti Indulások**-at a HACS-ban → **Letöltés**
-4. **Indítsd újra** a Home Assistantot (Beállítások → Rendszer → újraindítás)
+3. Keresd meg a **Budapesti Indulások** integrációt → **Letöltés**
+4. **Indítsd újra** a Home Assistantot, majd folytasd az alábbi beállítással.
 
 ---
 
