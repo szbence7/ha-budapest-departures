@@ -3,11 +3,12 @@
  * https://github.com/szbence7/dot-matrix-departure-card
  * MIT License (c) Szorgalmatos Bence
  */
-const CARD_VERSION = "0.4.1";
+const CARD_VERSION = "0.4.2";
 
 // 5x7 dot-matrix font: 35 bits per glyph, row by row
 const GLYPHS = {"0": "01110100011000110001100011000101110", "1": "00100011000010000100001000010001110", "2": "01110100010001000100010001000011111", "3": "01110100010000100110000011000101110", "4": "00010001100101010010111110001000010", "5": "11111100001111000001000011000101110", "6": "00110010001000011110100011000101110", "7": "11111000010001000100010000100001000", "8": "01110100011000101110100011000101110", "9": "01110100011000101111000010001001100", "A": "01110100011000111111100011000110001", "B": "11110100011000111110100011000111110", "C": "01110100011000010000100001000101110", "D": "11110100011000110001100011000111110", "E": "11111100001000011110100001000011111", "F": "11111100001000011110100001000010000", "G": "01110100011000010111100011000101110", "H": "10001100011000111111100011000110001", "I": "01110001000010000100001000010001110", "J": "00111000100001000010000101001001100", "K": "10001100101010011000101001001010001", "L": "10000100001000010000100001000011111", "M": "10001110111010110001100011000110001", "N": "10001110011010110011100011000110001", "O": "01110100011000110001100011000101110", "P": "11110100011000111110100001000010000", "Q": "01110100011000110001101011001001101", "R": "11110100011000111110101001001010001", "S": "01111100001000001110000010000111110", "T": "11111001000010000100001000010000100", "U": "10001100011000110001100011000101110", "V": "10001100011000110001010100101000100", "W": "10001100011000110101101011101110001", "X": "10001010100010000100001000101010001", "Y": "10001010100010000100001000010000100", "Z": "11111000010001000100010001000011111", " ": "00000000000000000000000000000000000", ":": "00000001000010000000001000010000000", "'": "00100001000000000000000000000000000", "Á": "00100011101000110001111111000110001", "É": "00100111111000011110100001000011111", "Í": "00100011100010000100001000010001110", "Ó": "00100011101000110001100011000101110", "Ö": "01010011101000110001100011000101110", "Ő": "10001011101000110001100011000101110", "Ú": "00100100011000110001100011000101110", "Ü": "01010100011000110001100011000101110", "Ű": "01001100100000010001100011000101110", ",": "00000000000000000000001100001000100", ".": "00000000000000000000000000011000110", "-": "00000000000000011111000000000000000", "/": "00001000100001000100010000100010000", "!": "00100001000010000100001000000000100", "?": "01110100010000100010001000000000100", "(": "00010001000100001000010000010000010", ")": "01000001000001000010000100010001000", "+": "00000001000010011111001000010000000"};
 const BLANK = "0".repeat(35);
+const BLINK_MS = 500;
 
 const COLORS = [
   { value: "#ff8800", label: "Borostyán (FUTÁR)" },
@@ -57,10 +58,10 @@ class DotMatrixDepartureCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this._offsets = [];
-    this._lastStep = 0;
-    this._raf = null;
-    this._width = 0;
+    this._timer = null;
+    this._departures = [];
+    this._visible = false;
+    this._onVisibilityChange = () => this._render();
   }
 
   static getStubConfig(hass) {
@@ -124,7 +125,7 @@ class DotMatrixDepartureCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    const state = this._config.entity ? hass.states[this._config.entity] : undefined;
+    const state = this._config?.entity ? hass.states[this._config.entity] : undefined;
     if (state !== this._state) {
       this._state = state;
       this._updateData();
@@ -141,18 +142,28 @@ class DotMatrixDepartureCard extends HTMLElement {
 
   connectedCallback() {
     this._resizeObserver = new ResizeObserver(() => this._resize());
+    this._intersectionObserver = new IntersectionObserver(([entry]) => {
+      this._visible = entry.isIntersecting;
+      this._render();
+    });
     if (this._board) this._resizeObserver.observe(this._board);
-    this._start();
+    this._intersectionObserver.observe(this);
+    document.addEventListener("visibilitychange", this._onVisibilityChange);
+    this._resize();
   }
 
   disconnectedCallback() {
-    this._resizeObserver?.disconnect();
-    cancelAnimationFrame(this._raf);
-    this._raf = null;
+    this._resizeObserver.disconnect();
+    this._intersectionObserver.disconnect();
+    document.removeEventListener("visibilitychange", this._onVisibilityChange);
+    clearTimeout(this._timer);
+    this._timer = null;
+    this._visible = false;
   }
 
   _build() {
     const c = this._config;
+    this._resizeObserver?.disconnect();
     this.shadowRoot.innerHTML = `
       <style>
         :host { display: block; height: 100%; }
@@ -172,12 +183,11 @@ class DotMatrixDepartureCard extends HTMLElement {
     this._board = this.shadowRoot.querySelector(".board");
     this._canvas = this.shadowRoot.querySelector("canvas");
     this._ctx = this._canvas.getContext("2d");
-    this._offsets = [];
-    if (this.isConnected && this._resizeObserver) this._resizeObserver.observe(this._board);
-    if (this._hass) {
-      this._state = c.entity ? this._hass.states[c.entity] : undefined;
-      this._updateData();
-    }
+    this._geometry = undefined;
+    this._layers = [];
+    if (this.isConnected) this._resizeObserver?.observe(this._board);
+    this._state = c.entity ? this._hass?.states[c.entity] : undefined;
+    this._updateData();
   }
 
   _updateData() {
@@ -187,7 +197,9 @@ class DotMatrixDepartureCard extends HTMLElement {
     this._alert = this._config.show_alerts ? a.alert || "" : "";
     this._unavailable = !s || s.state === "unavailable";
     const stop = a.stop_name ? `${a.stop_name}${a.direction ? ` → ${a.direction}` : ""}` : "";
-    if (this._titleEl) this._titleEl.textContent = this._config.title || stop || a.friendly_name || "";
+    const title = this._config.title || stop || a.friendly_name || "";
+    if (this._titleEl.textContent !== title) this._titleEl.textContent = title;
+    this._modelDirty = true;
     this._resize();
   }
 
@@ -199,7 +211,11 @@ class DotMatrixDepartureCard extends HTMLElement {
   _resize() {
     if (!this._board) return;
     const width = this._board.clientWidth - 20;
-    if (width <= 0) return;
+    if (width <= 0) {
+      this._geometry = undefined;
+      this._render();
+      return;
+    }
     const c = this._config;
     const dpr = window.devicePixelRatio || 1;
     const snap = (v) => Math.max(1 / dpr, Math.round(v * dpr) / dpr);
@@ -231,60 +247,31 @@ class DotMatrixDepartureCard extends HTMLElement {
       }
     }
 
-    this._pitch = pitch;
-    this._rowsShown = rows;
-    this._cols = Math.floor(width / pitch + 1e-6);
-    if (this._cols < 1) this._cols = 1;
-    this._offsetX = Math.floor(((width - this._cols * pitch) / 2) * dpr) / dpr;
+    const cols = Math.max(1, Math.floor(width / pitch + 1e-6));
     const height = this._heightDots(rows) * pitch;
-    this._canvas.width = Math.round(width * dpr);
-    this._canvas.height = Math.round(height * dpr);
-    this._canvas.style.height = `${height}px`;
-    this._ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this._width = width;
-    this._draw(performance.now());
-  }
-
-  _start() {
-    if (this._raf) return;
-    const loop = (t) => {
-      this._raf = requestAnimationFrame(loop);
-      const stepMs = 1000 / this._config.scroll_speed;
-      const blinkPhase = Math.floor(t / 500) % 2;
-      const minuteTick = Math.floor(Date.now() / 5000);
-      if (t - this._lastStep >= stepMs) {
-        this._lastStep = t;
-        this._offsets = this._offsets.map((o) => o + 1);
-        this._draw(t);
-      } else if (blinkPhase !== this._blinkPhase || minuteTick !== this._minuteTick) {
-        this._draw(t);
-      }
-      this._blinkPhase = blinkPhase;
-      this._minuteTick = minuteTick;
-    };
-    this._raf = requestAnimationFrame(loop);
-  }
-
-  /** Visible window of `cols` columns from a (possibly scrolling) text. */
-  _window(text, cols, index) {
-    const m = pad(textToMatrix(text), 0, 1);
-    if (widthOf(m) <= cols) {
-      this._offsets[index] = 0;
-      return pad(m, 0, cols - widthOf(m));
+    const geometry = `${width}|${height}|${pitch}|${dpr}|${rows}|${Boolean(this._alert)}`;
+    if (geometry !== this._geometry) {
+      this._geometry = geometry;
+      this._pitch = pitch;
+      this._dpr = dpr;
+      this._pixelPitch = Math.round(pitch * dpr);
+      this._rowsShown = rows;
+      this._cols = cols;
+      this._offsetX = Math.max(0, Math.floor((width - cols * pitch) * dpr / 2));
+      this._canvas.width = Math.round(width * dpr);
+      this._canvas.height = Math.round(height * dpr);
+      this._canvas.style.height = `${height}px`;
+      this._layers = [];
+      this._background = null;
+      this._sprites = undefined;
+      this._alertLayer = null;
     }
-    const unit = m.map((r, i) => [...r, ...pad(textToMatrix(MARQUEE_GAP), 0, 1)[i]]);
-    const len = widthOf(unit);
-    const off = (this._offsets[index] || 0) % len;
-    this._offsets[index] = off;
-    return unit.map((r) => {
-      const out = new Array(cols);
-      for (let i = 0; i < cols; i++) out[i] = r[(off + i) % len];
-      return out;
-    });
+    this._render();
   }
 
   _lines(now) {
     const c = this._config;
+    this._nextDepartureChange = Infinity;
     if (!c.entity) return [{ cells: [{ text: "VÁLASSZ MEGÁLLÓT", flex: true }] }];
     if (this._unavailable) return [{ cells: [{ text: "NINCS ADAT", flex: true }] }];
     const deps = this._departures
@@ -292,6 +279,12 @@ class DotMatrixDepartureCard extends HTMLElement {
       .filter((d) => d.departure * 1000 - now > -60000)
       .slice(0, this._rowsShown);
     if (!deps.length) return [{ cells: [{ text: c.empty_text, flex: true }] }];
+    for (const d of deps) {
+      const departure = d.departure * 1000;
+      // Math.round changes just after the half-minute boundary.
+      const change = d.min > 0 ? Math.floor(departure - (d.min - 0.5) * 60000) + 1 : departure + 60000;
+      this._nextDepartureChange = Math.min(this._nextDepartureChange, change);
+    }
     // column widths sized to the longest value on the board, so narrow cards keep room for the destination
     const routeW = Math.max(2, ...deps.map((d) => String(d.route).length));
     const timeW = Math.max(2, ...deps.map((d) => `${d.min}'`.length));
@@ -307,83 +300,152 @@ class DotMatrixDepartureCard extends HTMLElement {
     }));
   }
 
-  _draw(t) {
-    const ctx = this._ctx;
-    if (!ctx || !this._width) return;
-    const c = this._config;
-    const p = this._pitch;
-    const ox = this._offsetX || 0;
-    const dpr = window.devicePixelRatio || 1;
-    const dot = Math.max(1 / dpr, Math.round(p * 0.78 * dpr) / dpr);
-    const r = Math.min(dot / 2, p * 0.2);
-    const now = Date.now();
-    const blinkOff = Math.floor(t / 500) % 2 === 1;
+  // Build at most one bounded strip per visible row. Moving the viewport
+  // normally needs only a bitmap copy, including the pre-rendered LED glow.
+  _layer(cols, paint) {
+    const canvas = document.createElement("canvas");
+    const pitch = this._pixelPitch;
+    canvas.width = cols * pitch;
+    canvas.height = 9 * pitch;
+    const ctx = canvas.getContext("2d");
+    const dot = Math.max(1, Math.round(pitch * 0.78));
+    const radius = Math.min(dot / 2, pitch * 0.2);
+    const path = new Path2D();
+    paint((x, y) => {
+      if (path.roundRect) path.roundRect(x * pitch, (y + 1) * pitch, dot, dot, radius);
+      else path.rect(x * pitch, (y + 1) * pitch, dot, dot);
+    });
+    return { canvas, ctx, path };
+  }
 
-    ctx.clearRect(0, 0, this._width, this._canvas.height);
+  _makeLine(line, previous, t) {
+    const key = JSON.stringify(line);
+    if (previous?.key === key) return previous;
 
-    const lit = new Map(); // color -> Path2D
-    const unlit = new Path2D();
-    const addDot = (path, x, y) => {
-      const px = ox + x * p;
-      if (path.roundRect) path.roundRect(px, y * p, dot, dot, r);
-      else path.rect(px, y * p, dot, dot);
-    };
-    const paint = (matrix, x0, y0, color, hidden) => {
-      let path = lit.get(color);
-      if (!path) lit.set(color, (path = new Path2D()));
-      for (let y = 0; y < 7; y++) {
-        const row = matrix[y];
-        for (let x = 0; x < row.length; x++) addDot(row[x] && !hidden ? path : unlit, x0 + x, y0 + y);
+    const cells = line.cells.map((cell) => {
+      const matrix = pad(textToMatrix(cell.text), cell.before || 0, cell.after || 0);
+      return cell.fixed ? matrix : pad(matrix, 0, 1);
+    });
+    const fixedWidth = cells.reduce((width, matrix, i) =>
+      width + (line.cells[i].fixed ? widthOf(matrix) : 0), 0);
+    const flexWidth = Math.max(0, this._cols - fixedWidth);
+    const layers = [];
+    let x = 0;
+    for (let i = 0; i < cells.length; i++) {
+      const cell = line.cells[i];
+      const matrix = cells[i];
+      const width = Math.min(this._cols - x, cell.fixed ? widthOf(matrix) : flexWidth);
+      if (width <= 0) continue;
+      const color = (i === 0 && line.routeColor) || this._config.color;
+      const scroll = !cell.fixed && widthOf(matrix) > width;
+      const prior = previous?.layers[i];
+      if (prior?.text === cell.text && prior.width === width && prior.color === color && prior.x === x &&
+          prior.before === cell.before && prior.after === cell.after && prior.scroll === scroll) {
+        layers[i] = prior;
+      } else {
+        layers[i] = {
+          text: cell.text, before: cell.before, after: cell.after, x, width, color, scroll,
+          matrix: scroll ? pad(matrix, 0, MARQUEE_GAP.length * 6) : matrix,
+          start: t, tileStart: -Infinity,
+        };
       }
-    };
+      x += width;
+    }
+    return { key, blink: line.blink, layers };
+  }
 
-    const lines = this._lines(now);
-    let index = 0;
-    lines.forEach((line, li) => {
-      const y0 = li * 10;
-      const hidden = line.blink && blinkOff;
-      const fixed = line.cells.filter((cell) => cell.fixed).map((cell) => pad(textToMatrix(cell.text), cell.before || 0, cell.after || 0));
-      const fixedWidth = fixed.reduce((s, m) => s + widthOf(m), 0);
-      let x = 0;
-      let fi = 0;
-      line.cells.forEach((cell, ci) => {
-        const color = ci === 0 && line.routeColor ? line.routeColor : c.color;
-        if (cell.fixed) {
-          const m = fixed[fi++];
-          paint(m, x, y0, color, hidden);
-          x += widthOf(m);
-        } else {
-          const cols = Math.max(0, this._cols - fixedWidth);
-          paint(this._window(cell.text, cols, index), x, y0, color, hidden);
-          x += cols;
-        }
+  _render() {
+    clearTimeout(this._timer);
+    this._timer = null;
+    if (!this.isConnected || !this._visible || document.hidden || !this._geometry) return;
+
+    const t = performance.now();
+    const now = Date.now();
+    if (this._modelDirty || !this._layers.length || now >= this._nextDepartureChange) {
+      const lines = this._lines(now);
+      this._layers = lines.map((line, i) => this._makeLine(line, this._layers[i], t));
+      this._alertLayer = this._alert
+        ? this._makeLine({ cells: [{ text: this._alert }] }, this._alertLayer, t)
+        : null;
+      this._modelDirty = false;
+    }
+
+    const speed = Number(this._config.scroll_speed);
+    const stepMs = 1000 / (Number.isFinite(speed) && speed > 0 ? speed : DEFAULTS.scroll_speed);
+    const blinkOff = Math.floor(t / BLINK_MS) % 2 === 1;
+    let delay = this._nextDepartureChange - now;
+    const sprites = [];
+    const addLine = (line, y) => {
+      if (line.blink) {
+        delay = Math.min(delay, BLINK_MS - t % BLINK_MS);
+        if (blinkOff) return;
+      }
+      line.layers.forEach((layer) => {
+        const elapsed = t - layer.start;
+        const step = layer.scroll ? Math.floor(elapsed / stepMs) : 0;
+        if (layer.scroll) delay = Math.min(delay, (step + 1) * stepMs - elapsed);
+        sprites.push({ layer, y, step });
       });
-      index++;
-    });
+    };
+    this._layers.forEach((line, i) => addLine(line, i * 10));
+    if (this._alertLayer) addLine(this._alertLayer, this._rowsShown * 10 + 2);
 
-    // empty rows keep the board size
-    for (let li = lines.length; li < c.rows; li++) paint(textToMatrix(""), 0, li * 10, c.color, false);
-    for (let li = lines.length; li < this._rowsShown; li++) {
-      for (let y = 0; y < 7; y++) for (let x = 0; x < this._cols; x++) addDot(unlit, x, li * 10 + y);
+    if (!this._sprites || sprites.length !== this._sprites.length || sprites.some(({ layer, y, step }, i) => {
+      const old = this._sprites[i];
+      return layer !== old.layer || y !== old.y || step !== old.step;
+    })) {
+      this._draw(sprites);
+      this._sprites = sprites;
     }
+    if (Number.isFinite(delay)) {
+      this._timer = setTimeout(() => this._render(), Math.max(1, Math.ceil(delay)));
+    }
+  }
 
+  _draw(sprites) {
+    const ctx = this._ctx;
+    const pitch = this._pixelPitch;
+    const width = this._cols * pitch;
+    ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+    if (!this._background) {
+      const { canvas, ctx: dots, path } = this._layer(this._cols, (add) => {
+        for (let y = 0; y < 7; y++) for (let x = 0; x < this._cols; x++) add(x, y);
+      });
+      dots.fillStyle = this._config.background ? "#111" : "rgba(127,127,127,0.12)";
+      dots.fill(path);
+      this._background = canvas;
+    }
+    for (let i = 0; i < this._rowsShown; i++) {
+      ctx.drawImage(this._background, this._offsetX, (i * 10 - 1) * pitch);
+    }
     if (this._alert) {
-      const y0 = this._rowsShown * 10 + 2;
+      const y = this._rowsShown * 10;
       ctx.fillStyle = "#222";
-      ctx.fillRect(ox, (y0 - 2) * p, this._cols * p, Math.max(1, p * 0.3));
-      paint(this._window(this._alert, this._cols, 99), 0, y0, c.color, false);
+      ctx.fillRect(this._offsetX, y * pitch, width, Math.max(this._dpr, pitch * 0.3));
+      ctx.drawImage(this._background, this._offsetX, (y + 1) * pitch);
     }
-
-    ctx.fillStyle = c.background ? "#111" : "rgba(127,127,127,0.12)";
-    ctx.fill(unlit);
-    lit.forEach((path, color) => {
-      ctx.save();
-      ctx.shadowColor = color;
-      ctx.shadowBlur = p * 0.9;
-      ctx.fillStyle = color;
-      ctx.fill(path);
-      ctx.restore();
-    });
+    for (const { layer, y, step } of sprites) {
+      const { matrix, scroll, color, x, width } = layer;
+      const tileStart = scroll ? Math.floor(step / width) * width : 0;
+      if (tileStart !== layer.tileStart) {
+        const tileWidth = scroll ? width * 2 : width;
+        const length = widthOf(matrix);
+        const { canvas, ctx: leds, path } = this._layer(tileWidth, (add) => {
+          for (let row = 0; row < 7; row++) {
+            for (let col = 0; col < tileWidth; col++) {
+              if (matrix[row][scroll ? (tileStart + col) % length : col]) add(col, row);
+            }
+          }
+        });
+        leds.fillStyle = leds.shadowColor = color;
+        leds.shadowBlur = this._pitch * 0.9;
+        leds.fill(path);
+        layer.bitmap = canvas;
+        layer.tileStart = tileStart;
+      }
+      ctx.drawImage(layer.bitmap, (step - tileStart) * pitch, 0, width * pitch, 9 * pitch,
+        this._offsetX + x * pitch, (y - 1) * pitch, width * pitch, 9 * pitch);
+    }
   }
 }
 
