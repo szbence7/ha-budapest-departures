@@ -4,6 +4,7 @@
 
 [![HACS](https://img.shields.io/badge/HACS-Default-blue.svg)](https://hacs.xyz)
 [![Verzió](https://img.shields.io/github/v/release/szbence7/ha-budapest-departures?label=verzi%C3%B3)](https://github.com/szbence7/ha-budapest-departures/releases)
+<a href="https://www.buymeacoffee.com/benceix"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="22" alt="Buy Me a Coffee"></a>
 
 Bármelyik budapesti és agglomerációs megálló **valós idejű indulásai** Home Assistantban, a BKK FUTÁR hivatalos nyílt adataiból. Busz, villamos, troli, metró, HÉV és a Volánbusz agglomerációs járatai is.
 
@@ -82,7 +83,7 @@ Ha már külön telepítetted a kártyát, a szokásos HACS-os vagy `/local/dot-
 **YAML-ban kezelt Lovelace-erőforrásoknál** az automatikus módosítás helyett a meglévő `lovelace: resources:` listába add hozzá az alábbi elemet, a régi kártya-erőforrás helyére:
 
 ```yaml
-- url: /budapest_departures/dot-matrix-departure-card.js?v=0.4.0
+- url: /budapest_departures/dot-matrix-departure-card.js?v=0.4.2
   type: module
 ```
 
