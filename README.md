@@ -83,7 +83,7 @@ Ha már külön telepítetted a kártyát, a szokásos HACS-os vagy `/local/dot-
 **YAML-ban kezelt Lovelace-erőforrásoknál** az automatikus módosítás helyett a meglévő `lovelace: resources:` listába add hozzá az alábbi elemet, a régi kártya-erőforrás helyére:
 
 ```yaml
-- url: /budapest_departures/dot-matrix-departure-card.js?v=0.4.2
+- url: /budapest_departures/dot-matrix-departure-card.js?v=0.4.3
   type: module
 ```
 
