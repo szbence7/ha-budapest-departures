@@ -176,3 +176,32 @@ async def test_websocket_search_and_add(hass: HomeAssistant, hass_ws_client, dep
         assert res["success"], res
         assert res["result"]["entity_id"] == "sensor.templom_ter_k_solymar_kovetkezo_indulas"
     assert len(entry.subentries) == 2
+
+
+async def test_options_flow(hass: HomeAssistant):
+    """The gear icon opens the options form (regression: unit None -> 400 Bad Request) and saves ints."""
+    entry = MockConfigEntry(domain=DOMAIN, version=2, data={"api_key": "x"}, options={})
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"scan_interval": 45, "minutes_after": 90, "max_departures": 12}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options == {"scan_interval": 45, "minutes_after": 90, "max_departures": 12}
+
+
+async def test_options_flow_http(hass: HomeAssistant, hass_client):
+    """Same request the frontend sends when the gear icon is clicked."""
+    from homeassistant.setup import async_setup_component
+
+    entry = MockConfigEntry(domain=DOMAIN, version=2, data={"api_key": "x"}, options={})
+    entry.add_to_hass(hass)
+    assert await async_setup_component(hass, "config", {})
+    client = await hass_client()
+    resp = await client.post("/api/config/config_entries/options/flow", json={"handler": entry.entry_id})
+    assert resp.status == 200, await resp.text()
+    body = await resp.json()
+    assert body["step_id"] == "init"
