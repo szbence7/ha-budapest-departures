@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 CARD_PATH = "/budapest_departures/dot-matrix-departure-card.js"
-CARD_URL = f"{CARD_PATH}?v=0.4.2"
+CARD_URL = f"{CARD_PATH}?v=0.4.3"
 LEGACY_PATHS = {
     "/hacsfiles/dot-matrix-departure-card/dot-matrix-departure-card.js",
     "/local/dot-matrix-departure-card.js",

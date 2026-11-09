@@ -342,11 +342,10 @@ class BudapestDeparturesOptionsFlow(OptionsFlow):
         opts = self.config_entry.options
 
         def num(minimum: int, maximum: int, unit: str | None) -> NumberSelector:
-            return NumberSelector(
-                NumberSelectorConfig(
-                    min=minimum, max=maximum, step=1, mode=NumberSelectorMode.BOX, unit_of_measurement=unit
-                )
-            )
+            config = NumberSelectorConfig(min=minimum, max=maximum, step=1, mode=NumberSelectorMode.BOX)
+            if unit:  # HA only accepts a str here; None made the options flow fail with 400
+                config["unit_of_measurement"] = unit
+            return NumberSelector(config)
 
         return self.async_show_form(
             step_id="init",
